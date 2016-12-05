@@ -1,0 +1,5 @@
+.idea
+.env
+*.pyc
+.tox
+pilvi/settings

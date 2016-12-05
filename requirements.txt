@@ -1,0 +1,17 @@
+PyJWT
+
+# aiohttp stack
+aiohttp
+cchardet
+aiodns
+aiohttp_debugtoolbar
+
+asynctest
+pyyaml
+
+# For cache
+werkzeug
+
+
+# Management
+django

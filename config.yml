@@ -1,0 +1,4 @@
+---
+
+routes:
+  - {path: "/path", proxy_pass: "http://localhost:8010/", methods: ["GET"]}
