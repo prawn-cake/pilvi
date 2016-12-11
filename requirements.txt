@@ -12,3 +12,7 @@ aioredis
 
 # Management
 django
+
+# Tests and debugging
+django-extensions
+werkzeug

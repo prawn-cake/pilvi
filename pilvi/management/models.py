@@ -1,11 +1,20 @@
 # -*- coding: utf-8 -*-
 import urllib.parse
-
 from django.core.exceptions import ValidationError
 from django.db import models
 
 
-class Client(models.Model):
+class TimeTrackableModel(models.Model):
+    """Abstract model which implements two fields to track timestamps """
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        abstract = True
+
+
+class Client(TimeTrackableModel):
     """Client application account"""
 
     name = models.CharField(unique=True, max_length=256)
@@ -13,7 +22,9 @@ class Client(models.Model):
     is_active = models.BooleanField(default=False)
 
     def __str__(self):
-        return '%s: %s' % (self.__class__.__name__, self.name)
+        return '%s(%s, active: %s))' % (self.__class__.__name__,
+                                        self.name,
+                                        self.is_active)
 
 
 #TODO: added default data migration to prefill the values
@@ -32,7 +43,7 @@ class HTTPMethod(models.Model):
         return self.name
 
 
-class ProxyResource(models.Model):
+class ProxyResource(TimeTrackableModel):
     """Proxy resource. It indicates"""
 
     name = models.CharField(max_length=256)
@@ -44,6 +55,8 @@ class ProxyResource(models.Model):
     protected = models.BooleanField(default=True,
                                     help_text='Indicates that resource is '
                                               'protected with JWT token')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def display_methods(self):
         """Django admin helper to display m2m field
@@ -64,8 +77,8 @@ def validate_endpoint(value):
         raise ValidationError('URL path must start with /')
 
 
-class ApiEndpoint(models.Model):
-    path = models.CharField(max_length=2083,
+class ApiEndpoint(TimeTrackableModel):
+    path = models.CharField(max_length=2083,  # max url length
                             unique=True,
                             validators=[validate_endpoint],
                             help_text='For example: /api/v1 .This endpoint will be available as http(s)://0.0.0.0/api/v1')
@@ -74,7 +87,7 @@ class ApiEndpoint(models.Model):
         return self.path
 
 
-class HandlersRegistry(models.Model):
+class HandlersRegistry(TimeTrackableModel):
     """Registry for aiohandlers"""
 
     name = models.CharField(max_length=256, unique=True)

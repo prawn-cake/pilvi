@@ -21,8 +21,8 @@ class Cache(object, metaclass=Singleton):
     async def get_user_data(self, user_id):
         return await self._cache.get('user:%s' % str(user_id))
 
-    async def set_user_data(self, user_id, data):
-        await self._cache.set('user:%s' % str(user_id), data)
+    async def set_user_data(self, user_id, data, expire=0):
+        await self._cache.set('user:%s' % str(user_id), data, expire=expire)
 
     @staticmethod
     def get_cache(**kwargs):

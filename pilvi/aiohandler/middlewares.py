@@ -23,62 +23,38 @@ async def jwt_auth_middleware(app, handler):
 
     async def middleware_handler(request):
         cache = helpers.Cache.get_cache()
-        token = JWTAuth.get_token(request.headers)
+        try:
+            token = JWTAuth.get_token(request.headers)
+        except TokenError as err:
+            logger.error(err)
+            raise HTTPForbidden(text=str(err))
+
         try:
             payload = JWTAuth.decode_token(token)
         except jwt_exc.DecodeError as err:
+            # Wrong token is given case
             logger.error(err)
             raise HTTPForbidden(text=str(err))
 
         user_id = payload['user_id']
         user_data = await cache.get_user_data(user_id=user_id)
+        if not user_data:
+            msg = 'User %d oauth token is expired (no data in cache). ' \
+                  'Need to login again' % user_id
+            raise HTTPForbidden(text=msg)
         return await handler(request)
 
     return middleware_handler
 
 
 class JWTAuth(object):
-    """Authentication based on JWT tokens"""
+    """JWT Authenticator helper"""
 
     TOKEN_TYPE = 'Bearer'
 
     def __init__(self, cache):
         super(JWTAuth, self).__init__()
         self.cache = cache
-
-    def _authorize(self, headers):
-        """Common authorization function
-
-        :param headers: aiohttp headers
-        :return:
-        """
-        # Token is not given case, may raises a TokenError
-        token = JWTAuth.get_token(headers)
-
-        # Wrong token is given case
-        try:
-            payload = JWTAuth.decode_token(token)
-        except jwt_exc.DecodeError as err:
-            raise TokenError(str(err))
-
-        user_id = payload['user_id']
-        # NOTE: if data still is in cache
-        user_data = self.cache.get_user_data(user_id=user_id)
-        if not user_data:
-            raise TokenExpired(
-                'User %d oauth token is expired (no data in cache). '
-                'Need to login again' % user_id)
-        return user_data
-
-    def authorize(self):
-        try:
-            # TODO: implement this
-            pass
-        except TokenError as err:
-            logger.error(err)
-            return False
-
-        return True
 
     @staticmethod
     def get_token(headers):
