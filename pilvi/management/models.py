@@ -41,6 +41,9 @@ class ProxyResource(models.Model):
     endpoint = models.ForeignKey('ApiEndpoint',
                                  on_delete=models.CASCADE,
                                  help_text='API endpoint')
+    protected = models.BooleanField(default=True,
+                                    help_text='Indicates that resource is '
+                                              'protected with JWT token')
 
     def display_methods(self):
         """Django admin helper to display m2m field
@@ -69,3 +72,11 @@ class ApiEndpoint(models.Model):
 
     def __str__(self):
         return self.path
+
+
+class HandlersRegistry(models.Model):
+    """Registry for aiohandlers"""
+
+    name = models.CharField(max_length=256, unique=True)
+    hostname = models.CharField(max_length=256)
+    is_active = models.BooleanField(default=True)

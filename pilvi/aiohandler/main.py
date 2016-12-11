@@ -8,40 +8,8 @@ from pilvi.aiohandler.proxy import ProxyRouter
 from pilvi.management.models import ProxyResource
 
 
-# logging.basicConfig(
-#     level=logging.INFO,
-#     format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
-# )
-logger = logging.getLogger(__name__)
-
-
-SERVICES = ['sysdev', 'smapp']
 CUR_DIR = op.abspath(op.dirname(__file__))
-
-
-async def service_handler(request):
-    # NOTE: stub method
-    service_name = request.match_info.get('service')
-    if service_name not in SERVICES:
-        return web.HTTPBadRequest(reason="Service %s is not registered" %
-                                         service_name)
-    logger.info(request)
-    return web.json_response(data={'service': service_name,
-                                   'status': 'OK',
-                                   'proxy_url': str(request.url)})
-
-
-async def api(request):
-    service_name = request.match_info.get('service')
-    if not service_name:
-        return web.HTTPBadRequest(
-            reason="Service is not set. Query /api/{service_name}")
-    if service_name not in SERVICES:
-        return web.HTTPBadRequest(reason="Service %s is not registered" %
-                                         service_name)
-
-    return web.HTTPFound(str(request.url) + '/handler')
-
+logger = logging.getLogger(__name__)
 
 sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
 sslcontext.load_cert_chain(CUR_DIR + '/ssl/domain.crt',
@@ -68,17 +36,23 @@ class CustomRequestHandlerFactory(web.RequestHandlerFactory):
         super().__init__(app, router, **kwargs)
 
 
-loop = asyncio.get_event_loop()
-app = web.Application(loop=loop, handler_factory=CustomRequestHandlerFactory)
-proxy_router = ProxyRouter(app=app)
-app._router = proxy_router
+def create_app():
+    loop = asyncio.get_event_loop()
+    app = web.Application(loop=loop,
+                          handler_factory=CustomRequestHandlerFactory)
+    proxy_router = ProxyRouter(app=app)
+    app._router = proxy_router
 
-resources = ProxyResource.objects.all().select_related('endpoint').prefetch_related('methods')
-for resource in resources:
-    methods = [method.name for method in resource.methods.all()]
-    path = '{endpoint}/{name}'.format(endpoint=resource.endpoint.path,
-                                      name=resource.name)
-    logger.info('Register {} --> {} [{}]'.format(path, resource.url, ','.join(methods)))
-    app.router.add_proxy_route(methods=methods,
-                               path=path,
-                               proxy_pass=resource.url)
+    resources = ProxyResource.objects.all()\
+        .select_related('endpoint')\
+        .prefetch_related('methods')
+
+    for resource in resources:
+        methods = [method.name for method in resource.methods.all()]
+        path = '{endpoint}/{name}'.format(endpoint=resource.endpoint.path,
+                                          name=resource.name)
+        logger.info('Register {} --> {} [{}]'.format(path, resource.url, ','.join(methods)))
+        app.router.add_proxy_route(methods=methods,
+                                   path=path,
+                                   proxy_pass=resource.url)
+    return app

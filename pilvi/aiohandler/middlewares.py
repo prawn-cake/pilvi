@@ -1,14 +1,40 @@
 # -*- coding: utf-8 -*-
+"""aiohandler middlewares"""
+
 import logging
-import functools
 import jwt
+from aiohttp.web_exceptions import HTTPForbidden
 from jwt import exceptions as jwt_exc
-from handler import helpers
-from handler import settings
-from handler.exceptions import TokenError, TokenExpired
+from pilvi.aiohandler import helpers
+from pilvi.aiohandler.exceptions import TokenError, TokenExpired
+from django.conf import settings
+
 
 logger = logging.getLogger(__name__)
-cache = helpers.get_cache()
+
+
+async def jwt_auth_middleware(app, handler):
+    """JWT authentication middleware
+    Docs: http://aiohttp.readthedocs.io/en/stable/web.html#middlewares
+
+    :param app: application instance
+    :param handler: handler returned by the next middleware factory
+    """
+
+    async def middleware_handler(request):
+        cache = helpers.Cache.get_cache()
+        token = JWTAuth.get_token(request.headers)
+        try:
+            payload = JWTAuth.decode_token(token)
+        except jwt_exc.DecodeError as err:
+            logger.error(err)
+            raise HTTPForbidden(text=str(err))
+
+        user_id = payload['user_id']
+        user_data = await cache.get_user_data(user_id=user_id)
+        return await handler(request)
+
+    return middleware_handler
 
 
 class JWTAuth(object):
@@ -95,34 +121,3 @@ class JWTAuth(object):
         return jwt.encode(payload=payload,
                           key=settings.JWT_SECRET,
                           algorithm=settings.JWT_ALGO)
-
-    @staticmethod
-    def jwt_required():
-        """JWT required decorator
-
-        :param view_fn: flask.view
-
-        Usage:
-
-            @app.route('/profile')
-            @jwt_required()
-            def my_view(user_id. ...):
-                # it will be called only after all token checks with
-                # @jwt_required decorator
-                ...
-        """
-        from flask import request, jsonify
-
-        def wrapper(view_fn):
-            @functools.wraps(view_fn)
-            def decorator(*args, **kwargs):
-                jwt_auth = JWTAuth(kwargs.get('cache', helpers.get_cache()))
-                try:
-                    payload = jwt_auth._authorize(headers=request.headers)
-                except TokenError as err:
-                    logger.error(err)
-                    return jsonify({'error': 'Invalid token'}), 403
-
-                return view_fn(payload['user_id'], *args, **kwargs)
-            return decorator
-        return wrapper

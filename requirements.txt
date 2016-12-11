@@ -8,10 +8,7 @@ aiohttp_debugtoolbar
 
 asynctest
 pyyaml
-
-# For cache
-werkzeug
-
+aioredis
 
 # Management
 django

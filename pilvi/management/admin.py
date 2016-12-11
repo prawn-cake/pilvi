@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 from django.contrib import admin
+from django.utils.translation import ugettext_lazy
 
 from .models import Client, ProxyResource, HTTPMethod, ApiEndpoint
 
@@ -40,3 +41,8 @@ class HTTPMethodAdmin(admin.ModelAdmin):
 @admin.register(ApiEndpoint)
 class ApiEndpoinAdmin(admin.ModelAdmin):
     list_display = ('path', )
+
+
+# Customize admin titles
+admin.site.site_header = ugettext_lazy('Pilvi management')
+admin.site.site_title = ugettext_lazy('Pilvi management')
