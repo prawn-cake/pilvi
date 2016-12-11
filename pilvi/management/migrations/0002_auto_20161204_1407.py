@@ -4,12 +4,7 @@ from __future__ import unicode_literals
 
 from django.db import migrations
 
-
-def create_http_methods(apps, schema_editor):
-    HTTPMethod = apps.get_model("management", "HTTPMethod")
-    for name in 'GET', 'POST', 'PUT', 'DELETE':
-        method = HTTPMethod(name=name)
-        method.save()
+from pilvi.management.helpers import create_http_methods
 
 
 class Migration(migrations.Migration):

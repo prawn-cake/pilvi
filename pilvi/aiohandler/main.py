@@ -6,14 +6,18 @@ import os.path as op
 from aiohttp import web
 from pilvi.aiohandler.proxy import ProxyRouter
 from pilvi.management.models import ProxyResource
+from django.conf import settings
 
 
 CUR_DIR = op.abspath(op.dirname(__file__))
 logger = logging.getLogger(__name__)
 
-sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-sslcontext.load_cert_chain(CUR_DIR + '/ssl/domain.crt',
-                           CUR_DIR + '/ssl/domain.key')
+# Create ssl context if enabled
+sslcontext = None
+if settings.AIOHANDLER['ssl.enabled']:
+    sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+    sslcontext.load_cert_chain(settings.AIOHANDLER['ssl.crt'],
+                               settings.AIOHANDLER['ssl.key'])
 
 
 class CustomRequestHandlerFactory(web.RequestHandlerFactory):
