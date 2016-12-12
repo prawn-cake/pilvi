@@ -3,7 +3,7 @@
 
 import logging
 import jwt
-from aiohttp.web_exceptions import HTTPForbidden
+from aiohttp.web_exceptions import HTTPForbidden, HTTPBadRequest
 from jwt import exceptions as jwt_exc
 from pilvi.aiohandler import helpers
 from pilvi.aiohandler.exceptions import TokenError, TokenExpired
@@ -42,6 +42,32 @@ async def jwt_auth_middleware(app, handler):
             msg = 'User %d oauth token is expired (no data in cache). ' \
                   'Need to login again' % user_id
             raise HTTPForbidden(text=msg)
+        return await handler(request)
+
+    return middleware_handler
+
+
+async def token_auth_middleware(app, handler):
+    """Simple token auth middleware
+
+    :param app: application instance
+    :param handler: handler returned by the next middleware factory
+    """
+    async def middleware_handler(request):
+        cache = helpers.Cache.get_cache()
+        api_key = request.headers.get(settings.AIOHANDLER['auth.header'])
+        if not api_key:
+            msg = 'No api key is given'
+            logger.warning('Bad request: %s', msg)
+            raise HTTPBadRequest(text=msg)
+
+        payload = await cache.get(key=api_key)
+        if not payload:
+            msg = 'Session has been expired'
+            logger.warning('API Key: %s. %s', api_key, msg)
+            raise HTTPForbidden(text=msg)
+
+        logger.info('%s is authenticated', api_key)
         return await handler(request)
 
     return middleware_handler
