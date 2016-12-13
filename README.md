@@ -30,6 +30,12 @@ Common functions of API gateways:
 * aiohandler -- aiohttp-based HTTP handler
 * management -- api gateway management interface
 
+### Dependencies
+
+* django
+* aiohttp
+* cython
+
 
 ## Deployment
 

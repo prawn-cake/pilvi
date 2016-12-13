@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 import urllib.parse
+import uuid
+
 from django.core.exceptions import ValidationError
 from django.db import models
 
@@ -14,17 +16,26 @@ class TimeTrackableModel(models.Model):
         abstract = True
 
 
+class Resource(TimeTrackableModel):
+    name = models.CharField(max_length=256)
+
+    class Meta:
+        abstract = True
+
+
 class Client(TimeTrackableModel):
     """Client application account"""
 
     name = models.CharField(unique=True, max_length=256)
-    api_key = models.CharField(unique=True, max_length=256)
+    api_key = models.CharField(unique=True, max_length=256, editable=False)
     is_active = models.BooleanField(default=False)
 
+    @staticmethod
+    def generate_api_key():
+        return 'api-{}'.format(str(uuid.uuid4()).replace('-', ''))
+
     def __str__(self):
-        return '%s(%s, active: %s))' % (self.__class__.__name__,
-                                        self.name,
-                                        self.is_active)
+        return '%s(%s)' % (self.__class__.__name__, self.name)
 
 
 #TODO: added default data migration to prefill the values
@@ -37,21 +48,22 @@ class HTTPMethod(models.Model):
                                      ('PUT', 'PUT'),
                                      ('DELETE', 'DELETE'),
                                      ('PATCH', 'PATCH'),
+                                     ('OPTIONS', 'OPTIONS'),
+                                     ('ANY', 'ANY'),
                                      ('HEAD', 'HEAD')])
 
     def __str__(self):
         return self.name
 
 
-class ProxyResource(TimeTrackableModel):
+class ProxyResource(Resource):
     """Proxy resource. It indicates"""
 
-    name = models.CharField(max_length=256)
-    url = models.URLField()
+    endpoint_url = models.URLField()
     methods = models.ManyToManyField(HTTPMethod)
-    endpoint = models.ForeignKey('ApiEndpoint',
-                                 on_delete=models.CASCADE,
-                                 help_text='API endpoint')
+    api = models.ForeignKey('management.Api',
+                            on_delete=models.CASCADE,
+                            help_text='API endpoint')
     protected = models.BooleanField(default=True,
                                     help_text='Indicates that resource is '
                                               'protected with JWT token')
@@ -71,20 +83,22 @@ class ProxyResource(TimeTrackableModel):
         return '%s(%s)' % (self.__class__.__name__, self.name)
 
 
-def validate_endpoint(value):
+def validate_api_path(value):
     url = urllib.parse.urlparse(value)
     if not url.path.startswith('/'):
         raise ValidationError('URL path must start with /')
 
 
-class ApiEndpoint(TimeTrackableModel):
+class Api(Resource):
+    """API Resource model"""
+
     path = models.CharField(max_length=2083,  # max url length
                             unique=True,
-                            validators=[validate_endpoint],
+                            validators=[validate_api_path],
                             help_text='For example: /api/v1 .This endpoint will be available as http(s)://0.0.0.0/api/v1')
 
     def __str__(self):
-        return self.path
+        return '%s API (%s)' % (self.name, self.path)
 
 
 class HandlersRegistry(TimeTrackableModel):

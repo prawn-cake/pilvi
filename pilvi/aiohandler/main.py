@@ -9,6 +9,8 @@ from django.conf import settings
 from .middlewares import JWTAuth
 from aiohttp.web_exceptions import HTTPBadRequest, HTTPForbidden
 from .helpers import Cache
+from pilvi.management.helpers import HTTP_METHODS
+
 
 logger = logging.getLogger(__name__)
 
@@ -88,13 +90,16 @@ def create_app(loop=None):
     app._router = proxy_router
 
     resources = ProxyResource.objects.all()\
-        .select_related('endpoint')\
+        .select_related('api')\
         .prefetch_related('methods')
 
     for resource in resources:
         methods = [method.name for method in resource.methods.all()]
-        path = '{endpoint}/{name}'.format(endpoint=resource.endpoint.path,
-                                          name=resource.name)
+        if 'ANY' in methods:
+            methods = HTTP_METHODS
+
+        path = '{api}/{name}'.format(api=resource.api.path,
+                                     name=resource.name)
         logger.info('Register {} --> {} [{}]'.format(path, resource.url, ','.join(methods)))
         app.router.add_proxy_route(methods=methods,
                                    path=path,

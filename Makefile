@@ -33,9 +33,9 @@ run: env
 show_urls: env
 	$(MANAGER) show_urls --settings=$(SETTINGS)
 
-.PHONY: migration
-# target: migration - create $(DJANGO_APP_NAME) schema migrations
-migration: env
+.PHONY: migrations
+# target: migrations - create $(DJANGO_APP_NAME) schema migrations
+migrations: env
 	$(MANAGER) makemigrations --settings=$(SETTINGS) $(DJANGO_APP_NAME)
 
 .PHONY: data_migration

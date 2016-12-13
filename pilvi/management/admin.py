@@ -2,12 +2,18 @@
 from django.contrib import admin
 from django.utils.translation import ugettext_lazy
 
-from .models import Client, ProxyResource, HTTPMethod, ApiEndpoint
+from .models import Client, ProxyResource, HTTPMethod, Api
 
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     list_display = ('name', 'api_key', )
+    readonly_fields = ('api_key', )
+
+    def save_model(self, request, obj, form, change):
+        if not obj.api_key:
+            obj.api_key = Client.generate_api_key()
+        return super(ClientAdmin, self).save_model(request, obj, form, change)
 
 
 class ProxyHttpMethodsInline(admin.TabularInline):
@@ -16,8 +22,8 @@ class ProxyHttpMethodsInline(admin.TabularInline):
 
 @admin.register(ProxyResource)
 class ProxyResourceAdmin(admin.ModelAdmin):
-    list_display = ('name', 'url', 'display_methods', 'endpoint')
-    list_filter = ('endpoint', )
+    list_display = ('name', 'api', 'display_methods', 'endpoint_url')
+    list_filter = ('api', )
     # inlines = [ProxyHttpMethodsInline]
 
 
@@ -38,9 +44,9 @@ class HTTPMethodAdmin(admin.ModelAdmin):
     #     return actions
 
 
-@admin.register(ApiEndpoint)
-class ApiEndpoinAdmin(admin.ModelAdmin):
-    list_display = ('path', )
+@admin.register(Api)
+class ApiAdmin(admin.ModelAdmin):
+    list_display = ('name', 'path', )
 
 
 # Customize admin titles

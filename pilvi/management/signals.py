@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 import logging
-from django.db.models.signals import post_save, post_delete
+from django.db.models.signals import post_save, post_delete, pre_save
 from django.dispatch import receiver
-from pilvi.management.models import ProxyResource
+from pilvi.management.models import ProxyResource, Client
+from pilvi.management.helpers import generate_api_key
 
 
 logger = logging.getLogger(__name__)
