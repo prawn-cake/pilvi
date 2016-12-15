@@ -42,44 +42,68 @@ class CustomRequestHandlerFactory(web.RequestHandlerFactory):
         super().__init__(app, router, **kwargs)
 
 
-async def jwt_auth_handler(request):
-    """JWT authentication with API key
+class AuthHandler(object):
+    """Login handler class"""
 
-    NOTE: this method is blocking one intentionally. It should be used only for
-    getting jwt token. All other requests are async
-    """
-    api_key = request.headers.get(settings.AIOHANDLER['auth.header'])
-    if not api_key:
-        msg = 'No api key is given'
-        logger.warning('Bad request: %s', msg)
-        raise HTTPBadRequest(text=msg)
+    @staticmethod
+    def get_api_key(request):
+        return request.headers.get(settings.AIOHANDLER['auth.header'])
 
-    try:
-        client = Client.objects.get(api_key=api_key)
-    except Client.DoesNotExist as err:
-        logger.error(err)
-        msg = 'Such client does not exist'
-        raise HTTPBadRequest(text=msg)
+    @staticmethod
+    def _authorize(request):
+        api_key = request.headers.get(settings.AIOHANDLER['auth.header'])
+        if not api_key:
+            msg = 'No api key is given'
+            logger.warning('Bad request: %s', msg)
+            raise HTTPBadRequest(text=msg)
 
-    if not client.is_active:
-        logger.warning('Client %s is not active (disabled)', client)
-        raise HTTPForbidden(text='Client is not active')
+        try:
+            client = Client.objects.get(api_key=api_key)
+        except Client.DoesNotExist as err:
+            logger.error(err)
+            msg = 'Such client does not exist'
+            raise HTTPBadRequest(text=msg)
 
-    payload = {'client_id': client.pk,
-               'role': None,  # NOTE: future proof option
-               'expires_in': settings.AIOHANDLER['auth.expires_in']}
-    cache = Cache.get_cache()
-    cache.set_user_data(user_id=client.pk,
-                        data=payload,
-                        expire=settings.AIOHANDLER['auth.expires_in'])
-    jwt_token = JWTAuth.encode_token(payload)
-    return web.json_response(data={'token': jwt_token.decode()})
+        if not client.is_active:
+            logger.warning('Client %s is not active (disabled)', client)
+            raise HTTPForbidden(text='Client is not active')
+        return client, api_key
+
+    @staticmethod
+    async def jwt_auth(request):
+        """JWT authentication with API key
+
+        NOTE: this method is blocking one intentionally. It should be used only
+        for getting jwt token. All other requests are async
+        """
+        client, _ = AuthHandler._authorize(request)
+        payload = {'client_id': client.pk,
+                   'role': None,  # NOTE: future proof option
+                   'expires_in': settings.AIOHANDLER['auth.expires_in']}
+        cache = Cache.get_cache()
+        cache.set_user_data(user_id=client.pk,
+                            data=payload,
+                            expire=settings.AIOHANDLER['auth.expires_in'])
+        jwt_token = JWTAuth.encode_token(payload)
+        return web.json_response(data={'token': jwt_token.decode()})
+
+    @staticmethod
+    async def auth(request):
+        client, api_key = AuthHandler._authorize(request)
+        cache = Cache.get_cache()
+        payload = {'client_id': client.pk,
+                   'role': None,  # NOTE: future proof option
+                   'expires_in': settings.AIOHANDLER['auth.expires_in']}
+        cache.set_key_data(api_key=api_key,
+                           data=payload,
+                           expire=settings.AIOHANDLER['auth.expires_in'])
+        return web.json_response(data={'status': 'ok'})
 
 
 def create_default_views(app):
     app.router.add_route(method='POST',
                          path=settings.AIOHANDLER['auth.url'],
-                         handler=jwt_auth_handler)
+                         handler=AuthHandler.jwt_auth)
 
 
 def create_app(loop=None):

@@ -48,7 +48,7 @@ async def jwt_auth_middleware(app, handler):
 
 
 async def token_auth_middleware(app, handler):
-    """Simple token auth middleware
+    """Simple token auth middleware to check the token on every request
 
     :param app: application instance
     :param handler: handler returned by the next middleware factory
@@ -63,9 +63,8 @@ async def token_auth_middleware(app, handler):
 
         payload = await cache.get(key=api_key)
         if not payload:
-            msg = 'Session has been expired'
-            logger.warning('API Key: %s. %s', api_key, msg)
-            raise HTTPForbidden(text=msg)
+            logger.warning("API key '%s' is invalid or expired" % api_key)
+            raise HTTPForbidden()
 
         logger.info('%s is authenticated', api_key)
         return await handler(request)

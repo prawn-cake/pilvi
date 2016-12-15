@@ -24,6 +24,12 @@ class Cache(object, metaclass=Singleton):
     async def set_user_data(self, user_id, data, expire=0):
         await self._cache.set('user:%s' % str(user_id), data, expire=expire)
 
+    async def set_key_data(self, api_key, data, expire=0):
+        await self._cache.set('key:%s' % str(api_key), data, expire=expire)
+
+    async def get_key_data(self, api_key):
+        await self._cache.get('key:%s' % str(api_key))
+
     async def get(self, key):
         return await self._cache.get(key)
 
