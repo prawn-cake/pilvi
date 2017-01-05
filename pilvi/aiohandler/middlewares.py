@@ -2,13 +2,14 @@
 """aiohandler middlewares"""
 
 import logging
-import jwt
-from aiohttp.web_exceptions import HTTPForbidden, HTTPBadRequest
-from jwt import exceptions as jwt_exc
-from pilvi.aiohandler import helpers
-from pilvi.aiohandler.exceptions import TokenError, TokenExpired
-from django.conf import settings
 
+from aiohttp.web_exceptions import HTTPForbidden, HTTPBadRequest
+from django.conf import settings
+from jwt import exceptions as jwt_exc
+
+from pilvi.aiohandler import helpers
+from pilvi.aiohandler.exceptions import TokenError
+from pilvi.aiohandler.helpers import JWTManager
 
 logger = logging.getLogger(__name__)
 
@@ -24,13 +25,13 @@ async def jwt_auth_middleware(app, handler):
     async def middleware_handler(request):
         cache = helpers.Cache.get_cache()
         try:
-            token = JWTAuth.get_token(request.headers)
+            token = JWTManager.get_token(request.headers)
         except TokenError as err:
             logger.error(err)
             raise HTTPForbidden(text=str(err))
 
         try:
-            payload = JWTAuth.decode_token(token)
+            payload = JWTManager.decode_token(token)
         except jwt_exc.DecodeError as err:
             # Wrong token is given case
             logger.error(err)
@@ -61,64 +62,38 @@ async def token_auth_middleware(app, handler):
             logger.warning('Bad request: %s', msg)
             raise HTTPBadRequest(text=msg)
 
-        payload = await cache.get(key=api_key)
+        payload = await cache.get_client_data(api_key=api_key)
         if not payload:
             logger.warning("API key '%s' is invalid or expired" % api_key)
             raise HTTPForbidden()
 
+        request['client'] = payload
         logger.info('%s is authenticated', api_key)
         return await handler(request)
 
     return middleware_handler
 
 
-class JWTAuth(object):
-    """JWT Authenticator helper"""
+async def check_route_middleware(app, handler):
+    """This middleware checks client routes
 
-    TOKEN_TYPE = 'Bearer'
+    :param app: application instance
+    :param handler: handler returned by the next middleware factory
+    :return:
+    """
 
-    def __init__(self, cache):
-        super(JWTAuth, self).__init__()
-        self.cache = cache
+    async def middleware_handler(request):
+        # NOTE: this should come from the token_auth_middleware
+        client = request['client']
+        cache = helpers.Cache.get_cache()
+        route = request.match_info.route
+        proxy_route = app.router.get_proxy_route(route)
 
-    @staticmethod
-    def get_token(headers):
-        """Extract token from HTTP headers
+        # TODO: implement this
+        client_routes = await cache.get('routes:%d' % client['id'])
 
-        :param headers: flask.request.headers
-        """
-        bearer = headers.get('Authorization')
-        if bearer:
-            try:
-                token_type, token = bearer.rsplit(' ', 1)
-            except ValueError:
-                raise TokenError('Wrong bearer string: %s', bearer)
+        if proxy_route.url not in client_routes:
+            raise HTTPForbidden(text='Forbidden route')
+        return await handler(request)
 
-            if token_type != 'Bearer':
-                raise TokenError('Wrong token type: %s, must be %s',
-                                 token_type, 'Bearer')
-            return token
-        raise TokenError('No token is given in the Authorization header')
-
-    @staticmethod
-    def decode_token(token):
-        """Get decoded payload from token
-
-        :param token: str: token string
-        :return: dict: payload
-        :raise: jwt.exceptions.DecodeError
-        """
-
-        return jwt.decode(
-            token, settings.JWT_SECRET, algorithms=[settings.JWT_ALGO])
-
-    @staticmethod
-    def encode_token(payload):
-        """Encode token
-
-        :param payload: dict: data payload
-        :return: str: token string
-        """
-        return jwt.encode(payload=payload,
-                          key=settings.JWT_SECRET,
-                          algorithm=settings.JWT_ALGO)
+    return middleware_handler

@@ -1,9 +1,11 @@
 # -*- coding: utf-8 -*-
 import logging
-from django.db.models.signals import post_save, post_delete, pre_save
+from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
+from django.forms import model_to_dict
+
+from pilvi.aiohandler import helpers
 from pilvi.management.models import ProxyResource, Client
-from pilvi.management.helpers import generate_api_key
 
 
 logger = logging.getLogger(__name__)
@@ -28,3 +30,28 @@ def delete_proxy_resource(sender, **kwargs):
 
     """
     pass
+
+
+@receiver(signal=post_save, sender=Client)
+def save_client(sender, **kwargs):
+    """Update client info when a client has been created or updated.
+
+    :param sender: Client
+    :param kwargs:
+    """
+    cache = helpers.Cache.get_cache()
+    client = kwargs['instance']
+    cache.set_client_data(api_key=client.api_key, data=model_to_dict(client))
+
+
+@receiver(signal=post_delete, sender=Client)
+def delete_client(sender, **kwargs):
+    """Remove api key when client has been deleted.
+
+    :param sender: Client
+    :param kwargs:
+
+    """
+    cache = helpers.Cache.get_cache()
+    client = kwargs['instance']
+    cache.remove_client_data(api_key=client.api_key)
