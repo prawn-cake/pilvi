@@ -51,6 +51,9 @@ class AuthHandler(object):
 
     @staticmethod
     def _authorize(request):
+        """Authorize a request.
+
+        """
         api_key = request.headers.get(settings.AIOHANDLER['auth.header'])
         if not api_key:
             msg = 'No api key is given'
@@ -70,8 +73,8 @@ class AuthHandler(object):
         return client, api_key
 
     @staticmethod
-    async def jwt_auth(request):
-        """JWT authentication with API key
+    async def jwt_auth_view(request):
+        """JWT authentication view with API key
 
         NOTE: this method is blocking one intentionally. It should be used only
         for getting jwt token. All other requests are async
@@ -88,7 +91,10 @@ class AuthHandler(object):
         return web.json_response(data={'token': jwt_token.decode()})
 
     @staticmethod
-    async def auth(request):
+    async def auth_view(request):
+        """Authentication view with simple token
+
+        """
         client, api_key = AuthHandler._authorize(request)
         cache = Cache.get_cache()
         payload = {'client_id': client.pk,
@@ -101,9 +107,12 @@ class AuthHandler(object):
 
 
 def create_default_views(app):
+    """Create default views come from settings
+
+    """
     app.router.add_route(method='POST',
                          path=settings.AIOHANDLER['auth.url'],
-                         handler=AuthHandler.jwt_auth)
+                         handler=AuthHandler.jwt_auth_view)
 
 
 def create_app(loop=None):
@@ -124,10 +133,11 @@ def create_app(loop=None):
 
         path = '{api}/{name}'.format(api=resource.api.path,
                                      name=resource.name)
-        logger.info('Register {} --> {} [{}]'.format(path, resource.url, ','.join(methods)))
+        logger.info('Register {} --> {} [{}]'.format(
+            path, resource.endpoint_url, ','.join(methods)))
         app.router.add_proxy_route(methods=methods,
                                    path=path,
-                                   proxy_pass=resource.url)
+                                   endpoint_url=resource.endpoint_url)
     # Create default (auth, etc) views
     create_default_views(app)
     return app

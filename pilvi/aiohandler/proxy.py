@@ -28,15 +28,19 @@ class ProxyRoute(object):
 
 
 class ProxyRouter(web.UrlDispatcher):
+    """Custom url dispatcher with a proxy table"""
+
     def __init__(self, app):
         super().__init__(app)
+        # NOTE: proxy table contains resource -> endpoint_url mapping
         self._proxy_table = {}
 
-    def add_proxy_route(self, methods, path, proxy_pass, *, name=None,
+    def add_proxy_route(self, methods, path, endpoint_url, *, name=None,
                         expect_handler=None, protected=True):
         """
+
         :param methods: list of str
-        :param proxy_pass: str: must be an URL like http://localhost:8000
+        :param endpoint_url: str: must be an URL like http://localhost:8000
         :return:
 
         NOTE: Check https://www.python.org/dev/peps/pep-3102/ about the '*' in
@@ -47,14 +51,14 @@ class ProxyRouter(web.UrlDispatcher):
         # if isinstance(resource, DynamicResource):
         #     info = resource.get_info()
 
-        proxy_url = URL(proxy_pass)
+        endpoint_url = URL(endpoint_url)
         for method in methods:
             route = resource.add_route(method, proxy_handler,
                                        expect_handler=expect_handler)
-            self.set_proxy_route(route, proxy_url, protected=protected)
+            self.set_proxy_route(route, endpoint_url, protected=protected)
 
-    def set_proxy_route(self, route, proxy_url, protected):
-        self._proxy_table[route] = ProxyRoute(url=proxy_url,
+    def set_proxy_route(self, route, endpoint_url, protected):
+        self._proxy_table[route] = ProxyRoute(url=endpoint_url,
                                               protected=protected)
 
     def get_proxy_route(self, route):

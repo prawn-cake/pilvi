@@ -29,16 +29,22 @@ class Client(TimeTrackableModel):
     name = models.CharField(unique=True, max_length=256)
     api_key = models.CharField(unique=True, max_length=256, editable=False)
     is_active = models.BooleanField(default=False)
+    resources = models.ManyToManyField('management.ProxyResource')
 
     @staticmethod
     def generate_api_key():
         return 'api-{}'.format(str(uuid.uuid4()).replace('-', ''))
 
+    def available_resources(self):
+        return list(self.resources.all())
+
     def __str__(self):
         return '%s(%s)' % (self.__class__.__name__, self.name)
 
+    def cache_clients(self):
+        pass
 
-#TODO: added default data migration to prefill the values
+
 class HTTPMethod(models.Model):
     """Static list of HTTP methods"""
 
@@ -59,14 +65,14 @@ class HTTPMethod(models.Model):
 class ProxyResource(Resource):
     """Proxy resource. It indicates"""
 
-    endpoint_url = models.URLField()
+    endpoint_url = models.URLField(help_text='For example: http(s)://myservice:8001')
     methods = models.ManyToManyField(HTTPMethod)
     api = models.ForeignKey('management.Api',
                             on_delete=models.CASCADE,
-                            help_text='API endpoint')
+                            help_text='API entrypoint')
     protected = models.BooleanField(default=True,
                                     help_text='Indicates that resource is '
-                                              'protected with JWT token')
+                                              'protected with token')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -89,7 +95,8 @@ def validate_api_path(value):
         raise ValidationError('URL path must start with /')
 
 
-class Api(Resource):
+# TODO: make this as a proxy resource abstract model
+class Api(TimeTrackableModel):
     """API Resource model"""
 
     path = models.CharField(max_length=2083,  # max url length
@@ -98,7 +105,7 @@ class Api(Resource):
                             help_text='For example: /api/v1 .This endpoint will be available as http(s)://0.0.0.0/api/v1')
 
     def __str__(self):
-        return '%s API (%s)' % (self.name, self.path)
+        return self.path
 
 
 class HandlersRegistry(TimeTrackableModel):

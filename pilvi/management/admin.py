@@ -46,7 +46,7 @@ class HTTPMethodAdmin(admin.ModelAdmin):
 
 @admin.register(Api)
 class ApiAdmin(admin.ModelAdmin):
-    list_display = ('name', 'path', )
+    list_display = ('path', )
 
 
 # Customize admin titles

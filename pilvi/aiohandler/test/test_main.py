@@ -26,6 +26,7 @@ class AsyncMock(mock.MagicMock):
 class HandlerTest(AioHandlerTestCase):
     @unittest_run_loop
     async def test_example(self):
+        # TODO: create resources dynamically
         resp = await self.client.request("GET", "/api/test_service")
         self.assertEqual(resp.status, 200)
         json_data = await resp.json()
