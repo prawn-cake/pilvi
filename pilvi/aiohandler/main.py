@@ -3,10 +3,13 @@ import asyncio
 import logging
 import ssl
 from aiohttp import web
+
+from pilvi.aiohandler.middlewares import token_auth_middleware, \
+    check_route_middleware
 from pilvi.aiohandler.proxy import ProxyRouter
 from pilvi.management.models import ProxyResource, Client
 from django.conf import settings
-from .middlewares import JWTAuth
+from pilvi.aiohandler.helpers import JWTManager
 from aiohttp.web_exceptions import HTTPBadRequest, HTTPForbidden
 from .helpers import Cache
 from pilvi.management.helpers import HTTP_METHODS
@@ -87,7 +90,7 @@ class AuthHandler(object):
         cache.set_user_data(user_id=client.pk,
                             data=payload,
                             expire=settings.AIOHANDLER['auth.expires_in'])
-        jwt_token = JWTAuth.encode_token(payload)
+        jwt_token = JWTManager.encode_token(payload)
         return web.json_response(data={'token': jwt_token.decode()})
 
     @staticmethod
@@ -100,9 +103,9 @@ class AuthHandler(object):
         payload = {'client_id': client.pk,
                    'role': None,  # NOTE: future proof option
                    'expires_in': settings.AIOHANDLER['auth.expires_in']}
-        cache.set_key_data(api_key=api_key,
-                           data=payload,
-                           expire=settings.AIOHANDLER['auth.expires_in'])
+        cache.set_client_data(api_key=api_key,
+                              data=payload,
+                              expire=settings.AIOHANDLER['auth.expires_in'])
         return web.json_response(data={'status': 'ok'})
 
 
@@ -118,7 +121,9 @@ def create_default_views(app):
 def create_app(loop=None):
     loop = loop or asyncio.get_event_loop()
     app = web.Application(loop=loop,
-                          handler_factory=CustomRequestHandlerFactory)
+                          handler_factory=CustomRequestHandlerFactory,
+                          middlewares=[token_auth_middleware,
+                                       check_route_middleware])
     proxy_router = ProxyRouter(app=app)
     app._router = proxy_router
 

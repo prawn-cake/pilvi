@@ -75,7 +75,7 @@ class AuthTest(AioHandlerTestCase):
 
     @unittest_run_loop
     async def test_jwt_auth_handler(self):
-        from pilvi.aiohandler.middlewares import JWTAuth
+        from pilvi.aiohandler.helpers import JWTManager
 
         api_key = 'aaaa'
         client = Client.objects.create(name='test_client',
@@ -88,5 +88,5 @@ class AuthTest(AioHandlerTestCase):
         json_data = await resp.json()
         self.assertTrue(json_data['token'])
 
-        payload = JWTAuth.decode_token(json_data['token'])
+        payload = JWTManager.decode_token(json_data['token'])
         self.assertEqual(payload['client_id'], client.pk)
